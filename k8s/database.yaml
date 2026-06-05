@@ -1,0 +1,167 @@
+# database.yaml
+# Déploie la base de données PostgreSQL avec :
+#   - PersistentVolumeClaim : stockage durable pour les données
+#   - ConfigMap             : script d'initialisation SQL (init.sql)
+#   - Deployment            : pod PostgreSQL unique (StatefulSet possible en prod)
+#   - Service ClusterIP     : accessible uniquement depuis l'intérieur du cluster
+---
+# ConfigMap contenant le script SQL d'initialisation
+# Monté dans /docker-entrypoint-initdb.d/ pour être exécuté au premier démarrage
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskboard-db-init
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: database
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(120) NOT NULL,
+        description TEXT DEFAULT '',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO tasks (title, description)
+    VALUES
+        ('Préparer le Dockerfile backend', 'Utiliser une image Node légère'),
+        ('Créer le docker-compose.yml', 'Relier frontend, backend et PostgreSQL'),
+        ('Ajouter un volume nommé', 'Conserver les données PostgreSQL');
+---
+# PersistentVolumeClaim : réserve du stockage pour les données PostgreSQL
+# ReadWriteOnce = monté en lecture/écriture par un seul nœud à la fois
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: taskboard-db-pvc
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # 1 Gi suffisant pour ce TP ; augmenter en production
+      storage: 1Gi
+---
+# Deployment PostgreSQL : 1 seul replica (cohérence des données)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard-db
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: database
+spec:
+  replicas: 1
+  # Le selector doit correspondre aux labels du pod template
+  selector:
+    matchLabels:
+      app: taskboard
+      component: database
+  # Stratégie Recreate car PostgreSQL ne supporte pas plusieurs writers simultanés
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: taskboard
+        component: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          # IfNotPresent : utilise l'image locale si disponible (Docker Desktop)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+            # Variables attendues par l'image officielle postgres
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: taskboard-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: taskboard-config
+                  key: DB_USER
+            # Mot de passe lu depuis le Secret (jamais en clair)
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskboard-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            # Données persistantes PostgreSQL
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            # Script d'init SQL exécuté au premier démarrage
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          # Probe de disponibilité : vérifie que PostgreSQL accepte les connexions
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - taskboard_user
+                - -d
+                - taskboard
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
+          # Probe de vie : redémarre le pod si PostgreSQL ne répond plus
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - taskboard_user
+                - -d
+                - taskboard
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        # Volume persistant issu du PVC
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: taskboard-db-pvc
+        # ConfigMap monté comme répertoire de scripts d'init
+        - name: init-sql
+          configMap:
+            name: taskboard-db-init
+---
+# Service ClusterIP : la DB n'est jamais exposée à l'extérieur du cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-db
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: database
+spec:
+  type: ClusterIP
+  selector:
+    app: taskboard
+    component: database
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
