@@ -6,9 +6,9 @@ Déploiement de l'application **TaskBoard** (frontend HTML + backend Node.js + P
 
 | Membre | Rôle |
 |--------|------|
-| Membre A | Infrastructure & Configuration |
-| Membre B | Backend & Robustesse |
-| Membre C | Frontend, Exposition & Rapport |
+| Josué Adami (A) | Infrastructure & Configuration |
+| Alexis Redaud (B) | Backend & Robustesse |
+| Nicolas Gouy (C) | Frontend, Exposition & Rapport |
 
 ---
 

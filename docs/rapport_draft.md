@@ -4,11 +4,11 @@
 > le schéma d'architecture, le tableau des objets, les choix techniques et 2 captures
 > (`kubectl get all` + une démo). Le détail des commandes peut être résumé.
 
-| Membre | Prénom | Rôle |
+| Membre | Nom | Rôle |
 |--------|--------|------|
-| A | Josué | Infrastructure & Configuration |
-| B | Alexis | Backend & Robustesse |
-| C | Nicolas | Frontend, Exposition & Rapport |
+| A | Josué Adami | Infrastructure & Configuration |
+| B | Alexis Redaud | Backend & Robustesse |
+| C | Nicolas Gouy | Frontend, Exposition & Rapport |
 
 **Cluster :** Docker Desktop (Kubernetes activé) — **Namespace :** `taskboard`
 
