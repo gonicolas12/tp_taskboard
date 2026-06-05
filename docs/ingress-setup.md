@@ -7,13 +7,6 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
 ```
 
-# Phase 4 — Configuration Exposition (Nicolas)
-## 1. Installation nginx Ingress Controller
-```powershell
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
-kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
-```
-
 Vérification :
 ```bash
 kubectl get pods -n ingress-nginx
@@ -49,8 +42,12 @@ Le rewrite /$2 dans l'annotation nginx supprime le préfixe /api avant de transm
 ## 5. Fix API_BASE_URL côté frontend
 Le frontend lisait par défaut http://localhost:3000, ce qui échoue derrière l'Ingress (navigateur ne voit pas le backend).
 Modification dans taskboard/frontend/app.js :
-```bash
-// Avantconst API_BASE_URL = window.API_BASE_URL || "http://localhost:3000";// Aprèsconst API_BASE_URL = window.API_BASE_URL || "/api";
+```js
+// Avant
+const API_BASE_URL = window.API_BASE_URL || "http://localhost:3000";
+
+// Après
+const API_BASE_URL = window.API_BASE_URL || "/api";
 ```
 
 Rebuild + reimport dans le node Kubernetes (Docker Desktop K8s isolé) :
