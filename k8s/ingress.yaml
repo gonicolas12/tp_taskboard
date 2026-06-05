@@ -1,0 +1,50 @@
+# ingress.yaml
+# Expose l'application via nginx Ingress Controller avec :
+#   - /       → Service frontend (port 8080)
+#   - /api/   → Service backend  (port 3000), préfixe /api supprimé par rewrite
+#
+# Prérequis : installer nginx Ingress Controller sur Docker Desktop
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+#
+# Accès : http://taskboard.local  (après avoir ajouté 127.0.0.1 taskboard.local dans /etc/hosts)
+# Ou directement : http://localhost (si le controller écoute sur le port 80)
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taskboard-ingress
+  namespace: taskboard
+  labels:
+    app: taskboard
+  annotations:
+    # Classe nginx pour les règles de routage
+    kubernetes.io/ingress.class: "nginx"
+    # Rewrite : supprime le préfixe /api avant de transmettre au backend
+    # /api/tasks  → /tasks  (route Express)
+    # /api/health → /health (probe backend)
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Autorise les requêtes cross-origin depuis le frontend vers /api
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: taskboard.local
+      http:
+        paths:
+          # Route /api/ vers le backend (le rewrite-target supprime le préfixe /api)
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: taskboard-backend
+                port:
+                  number: 3000
+          # Route / vers le frontend (toutes les autres requêtes)
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: taskboard-frontend
+                port:
+                  number: 8080
