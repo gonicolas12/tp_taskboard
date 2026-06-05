@@ -51,22 +51,31 @@ spec:
                 configMapKeyRef:
                   name: taskboard-config
                   key: BACKEND_PORT
-          # Probe de disponibilité : le pod ne reçoit du trafic qu'une fois /health OK
-          # Délai initial long car le backend attend que PostgreSQL soit prêt
+          # Startup probe : absorbe le démarrage lent de PostgreSQL (init.sql au 1er boot).
+          # Tant qu'elle n'a pas réussi une fois, liveness ET readiness sont suspendues :
+          # la liveness ne peut donc pas tuer un backend sain pendant que la DB démarre.
+          # 30 tentatives x 5s = jusqu'à 150s de tolérance avant de déclarer l'échec.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 30
+          # Readiness : garde le pod hors du Service tant que la DB n'est pas joignable
+          # (/health renvoie 500 si SELECT 1 échoue). Comportement voulu.
           readinessProbe:
             httpGet:
               path: /health
               port: 3000
-            initialDelaySeconds: 15
             periodSeconds: 5
             failureThreshold: 3
             successThreshold: 1
-          # Probe de vie : redémarre le pod si l'API ne répond plus
+          # Liveness : NE doit PAS dépendre de la DB. Un check TCP du socket prouve que
+          # le process Express est vivant ; redémarrer le backend ne répare jamais la DB.
+          # Évite les CrashLoopBackOff en cascade lors d'une panne ou lenteur de PostgreSQL.
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3000
-            initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 3
           # resources.requests OBLIGATOIRE pour que le HPA puisse calculer l'utilisation CPU
