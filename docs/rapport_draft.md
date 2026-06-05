@@ -176,7 +176,7 @@ kubectl apply -f k8s/hpa.yaml
 > ```
 
 ### Preuve : `kubectl get all -n taskboard`
-*(insérer la capture)* — `screenshots/00-get-all.png`
+![kubectl get all -n taskboard — toute la stack en Running](screenshots/00-get-all.png)
 ```
 NAME                                      READY   STATUS    RESTARTS   AGE
 pod/taskboard-backend-856c77fc9c-8vkcj    1/1     Running   0          119s
@@ -204,7 +204,9 @@ kubectl delete pod <nom-d-un-pod-backend> -n taskboard
 kubectl get pods -n taskboard -w     # un nouveau pod est recréé automatiquement
 ```
 Le ReplicaSet maintient l'état désiré (2 replicas) : un pod supprimé est immédiatement
-recréé. → Capture `screenshots/01-self-healing.png`.
+recréé.
+
+![Self-healing : le pod supprimé est recréé automatiquement](screenshots/01-self-healing.png)
 
 ### 5.2 Scaling manuel
 ```powershell
@@ -213,7 +215,8 @@ kubectl get pods -n taskboard -l component=backend -o wide   # 5 pods
 kubectl scale deployment taskboard-backend -n taskboard --replicas=2   # retour
 ```
 Le Service `taskboard-backend` répartit le trafic sur l'ensemble des pods prêts.
-→ Capture `screenshots/02-scaling.png`.
+
+![Scaling manuel : passage à 5 replicas backend](screenshots/02-scaling.png)
 
 ### 5.3 Persistance des données
 ```powershell
@@ -226,7 +229,11 @@ kubectl get pods -n taskboard -w     # attendre le nouveau pod Running
 curl http://taskboard.local/api/tasks
 ```
 Les tâches survivent à la suppression du pod grâce au **PVC** (le volume est réattaché
-au nouveau pod). → Capture `screenshots/03-persistance.png` (avant/après).
+au nouveau pod).
+
+![Persistance (1/2) : le pod PostgreSQL est supprimé puis recréé](screenshots/03-persistance-1.png)
+
+![Persistance (2/2) : la tâche « PREUVE PERSISTANCE » est toujours présente après recréation](screenshots/03-persistance-2.png)
 
 ### 5.4 Autoscaling (HPA)
 ```powershell
@@ -236,7 +243,9 @@ kubectl get pods -n taskboard -l component=backend -w
 kubectl delete -f k8s/load-test.yaml         # scale-down après la fenêtre de 5 min
 ```
 Le HPA passe de 2 vers jusqu'à 10 replicas quand le CPU dépasse 50 % des `requests`,
-puis réduit prudemment une fois la charge retombée. → Capture `screenshots/04-hpa.png`.
+puis réduit prudemment une fois la charge retombée.
+
+![Autoscaling : sous charge, le HPA augmente les replicas du backend](screenshots/04-hpa.png)
 
 ---
 
