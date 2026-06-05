@@ -10,7 +10,10 @@
 #   kubectl port-forward -n taskboard svc/taskboard-frontend 8080:8080
 #   Puis ouvrir http://localhost:8080
 #
-# Note : avec l'Ingress (ingress.yaml), window.API_BASE_URL sera /api
+# URL de l'API : gérée côté code dans app.js (window.API_BASE_URL || "/api").
+# Avec l'Ingress, le frontend appelle /api sur la MÊME origine (taskboard.local),
+# routé vers le Service taskboard-backend:3000. Aucune variable d'env n'est requise
+# côté conteneur (le JS s'exécute dans le navigateur, pas dans le pod).
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,12 +42,11 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
-          env:
-            # URL de l'API backend vue depuis le navigateur client.
-            # Avec l'Ingress nginx, mettre la valeur "" (chemin relatif /api).
-            # Sans Ingress (port-forward), mettre http://localhost:3000.
-            - name: API_BASE_URL
-              value: ""
+          # NB : pas de variable d'environnement pour l'URL de l'API.
+          # Ce frontend est un site STATIQUE (servi par `serve`) : une variable d'env
+          # de conteneur n'atteint JAMAIS le JavaScript exécuté dans le navigateur.
+          # L'URL est résolue côté code par app.js (`window.API_BASE_URL || "/api"`)
+          # et /api est routé vers le backend par l'Ingress (même origine, rewrite /api → /).
           readinessProbe:
             httpGet:
               path: /
