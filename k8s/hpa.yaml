@@ -1,0 +1,56 @@
+# hpa.yaml
+# HorizontalPodAutoscaler pour le Deployment backend TaskBoard.
+# Scale automatiquement entre 2 et 10 replicas selon l'utilisation CPU.
+#
+# Prérequis : metrics-server installé dans le cluster
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#
+# Tester le scaling :
+#   kubectl run load-test --image=busybox -n taskboard --rm -it -- \
+#     sh -c "while true; do wget -q -O- http://taskboard-backend:3000/tasks; done"
+#
+# Observer le HPA :
+#   kubectl get hpa -n taskboard -w
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: taskboard-backend-hpa
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: backend
+spec:
+  # Cible le Deployment backend
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: taskboard-backend
+  # Plancher à 2 pour garantir la haute disponibilité même sans charge
+  minReplicas: 2
+  # Plafond à 10 pour limiter la consommation de ressources du cluster
+  maxReplicas: 10
+  metrics:
+    # Scale up dès que l'utilisation CPU dépasse 50% de resources.requests.cpu
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # resources.requests.cpu doit être défini dans backend.yaml (obligatoire)
+          averageUtilization: 50
+  behavior:
+    scaleUp:
+      # Réactivité au scale up : stabilisation 30s avant d'ajouter des pods
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      # Prudence au scale down : attendre 5 min avant de réduire les replicas
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
