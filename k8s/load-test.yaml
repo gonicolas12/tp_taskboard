@@ -1,0 +1,59 @@
+# load-test.yaml
+# Générateur de charge jetable pour valider le HorizontalPodAutoscaler du backend.
+# Chaque pod lance 40 boucles wget concurrentes sur /tasks afin de saturer le CPU
+# des pods backend et de faire grimper l'utilisation au-dessus du seuil HPA (50%).
+#
+# Prérequis : metrics-server installé ET fonctionnel (sinon le HPA reste <unknown>).
+# Sur Docker Desktop, patcher le metrics-server :
+#   kubectl patch deployment metrics-server -n kube-system --type='json' \
+#     -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+#
+# Lancer la charge :
+#   kubectl apply -f k8s/load-test.yaml
+#
+# Observer le scale-up (CPU > 50% -> replicas 2 -> ... -> 10) :
+#   kubectl get hpa -n taskboard -w
+#   kubectl get pods -n taskboard -l component=backend -w
+#
+# Augmenter la charge si besoin :
+#   kubectl scale deployment load-test -n taskboard --replicas=3
+#
+# Arrêter la charge (déclenche le scale-down après la fenêtre de stabilisation 5 min) :
+#   kubectl delete -f k8s/load-test.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-test
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: load-test
+spec:
+  # 2 replicas suffisent à dépasser 50% ; monter à 3+ pour pousser jusqu'à maxReplicas
+  replicas: 2
+  selector:
+    matchLabels:
+      app: taskboard
+      component: load-test
+  template:
+    metadata:
+      labels:
+        app: taskboard
+        component: load-test
+    spec:
+      containers:
+        - name: load-test
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          # command/args en tableau exec : aucune réécriture de chemin par le shell hôte
+          command: ["/bin/sh", "-c"]
+          args:
+            - "for i in $(seq 1 40); do (while true; do wget -q -O- http://taskboard-backend:3000/tasks >/dev/null 2>&1; done) & done; wait"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "16Mi"
+            limits:
+              cpu: "200m"
+              memory: "32Mi"
