@@ -1,0 +1,98 @@
+# backend.yaml
+# Déploie l'API Node.js TaskBoard avec :
+#   - Deployment  : 2 replicas, config externalisée, probes de santé, ressources définies
+#   - Service     : ClusterIP, port 3000, accessible depuis le frontend et l'Ingress
+#
+# Image à builder avant de déployer :
+#   docker build -t taskboard-backend:latest ./taskboard/backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard-backend
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: backend
+spec:
+  # 2 replicas minimum pour la haute disponibilité et pour que le HPA ait un plancher
+  replicas: 2
+  selector:
+    matchLabels:
+      app: taskboard
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: taskboard
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: taskboard-backend:latest
+          # IfNotPresent : utilise l'image buildée localement sur Docker Desktop
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          # Charge toutes les clés du ConfigMap comme variables d'environnement
+          envFrom:
+            - configMapRef:
+                name: taskboard-config
+          env:
+            # DB_PASSWORD lu individuellement depuis le Secret (ne pas l'exposer via envFrom)
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskboard-secret
+                  key: DB_PASSWORD
+            # PORT explicite pour l'application Express
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: taskboard-config
+                  key: BACKEND_PORT
+          # Probe de disponibilité : le pod ne reçoit du trafic qu'une fois /health OK
+          # Délai initial long car le backend attend que PostgreSQL soit prêt
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          # Probe de vie : redémarre le pod si l'API ne répond plus
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          # resources.requests OBLIGATOIRE pour que le HPA puisse calculer l'utilisation CPU
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+# Service ClusterIP : expose le backend en interne pour le frontend et l'Ingress
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-backend
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: taskboard
+    component: backend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

@@ -1,0 +1,38 @@
+# config.yaml
+# Externalise toute la configuration de l'application hors des Deployments.
+# ConfigMap  : valeurs non-sensibles (hôtes, ports, noms de base)
+# Secret     : mot de passe DB encodé en base64 (jamais en clair dans un Deployment)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskboard-config
+  namespace: taskboard
+  labels:
+    app: taskboard
+data:
+  # Hôte de la base de données = nom du Service Kubernetes PostgreSQL
+  DB_HOST: "taskboard-db"
+  # Port standard PostgreSQL
+  DB_PORT: "5432"
+  # Nom de la base de données
+  DB_NAME: "taskboard"
+  # Utilisateur PostgreSQL (non-sensible)
+  DB_USER: "taskboard_user"
+  # Port d'écoute du backend Node.js
+  BACKEND_PORT: "3000"
+  # Port d'écoute du frontend (serve)
+  FRONTEND_PORT: "8080"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taskboard-secret
+  namespace: taskboard
+  labels:
+    app: taskboard
+# Les valeurs doivent être encodées en base64 : echo -n "valeur" | base64
+type: Opaque
+data:
+  # taskboard_password en base64
+  DB_PASSWORD: dGFza2JvYXJkX3Bhc3N3b3Jk
