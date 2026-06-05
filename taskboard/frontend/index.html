@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskBoard Lite</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <h1>TaskBoard Lite</h1>
+      <p>Mini application de gestion de tâches pour le TP DevOps.</p>
+    </header>
+
+    <section class="card">
+      <h2>Ajouter une tâche</h2>
+      <form id="task-form" class="task-form">
+        <div class="field">
+          <label for="title">Titre</label>
+          <input id="title" name="title" type="text" maxlength="120" required />
+        </div>
+
+        <div class="field">
+          <label for="description">Description</label>
+          <textarea id="description" name="description" rows="4" maxlength="500"></textarea>
+        </div>
+
+        <button type="submit">Ajouter</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>Liste des tâches</h2>
+        <button id="refresh-btn" type="button" class="secondary">Rafraîchir</button>
+      </div>
+
+      <p id="status" class="status"></p>
+      <div id="task-list" class="task-list"></div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
