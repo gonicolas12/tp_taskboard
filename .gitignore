@@ -1,0 +1,11 @@
+# Images Docker exportées (volumineuses — ne jamais committer)
+*.tar
+
+# Fichiers système
+.DS_Store
+
+# Dépendances et build Node
+node_modules/
+
+# Variables d'environnement locales (garder .env.example)
+.env
