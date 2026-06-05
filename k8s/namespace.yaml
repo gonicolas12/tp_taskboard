@@ -1,0 +1,11 @@
+# namespace.yaml
+# Crée le namespace dédié à l'application TaskBoard.
+# Tous les objets Kubernetes du projet (Deployments, Services, ConfigMap, Secret, PVC...)
+# seront isolés dans ce namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: taskboard
+  labels:
+    app: taskboard
+    managed-by: kubectl
