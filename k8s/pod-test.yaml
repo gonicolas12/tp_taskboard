@@ -1,0 +1,54 @@
+# pod-test.yaml
+# Pod jetable busybox pour valider la connectivité réseau interne au cluster.
+# Ce pod permet de tester que les Services Kubernetes répondent correctement
+# depuis l'intérieur du namespace taskboard.
+#
+# Lancer le pod :
+#   kubectl apply -f k8s/pod-test.yaml
+#
+# Se connecter au pod :
+#   kubectl exec -it pod-test -n taskboard -- sh
+#
+# Commandes de test depuis l'intérieur du pod :
+#   # Test backend health
+#   wget -qO- http://taskboard-backend:3000/health
+#
+#   # Test liste des tâches
+#   wget -qO- http://taskboard-backend:3000/tasks
+#
+#   # Test connectivité PostgreSQL (port TCP)
+#   nc -zv taskboard-db 5432
+#
+#   # Test résolution DNS du service DB (FQDN complet)
+#   nslookup taskboard-db.taskboard.svc.cluster.local
+#
+#   # Test frontend
+#   wget -qO- http://taskboard-frontend:8080
+#
+# Supprimer le pod après les tests :
+#   kubectl delete pod pod-test -n taskboard
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-test
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: test
+spec:
+  # restartPolicy Never : pod à usage unique, ne redémarre pas après exécution
+  restartPolicy: Never
+  containers:
+    - name: busybox
+      image: busybox:latest
+      imagePullPolicy: IfNotPresent
+      # Garde le pod actif 1 heure pour permettre les tests interactifs
+      command: ["sleep", "3600"]
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "16Mi"
+        limits:
+          cpu: "50m"
+          memory: "32Mi"

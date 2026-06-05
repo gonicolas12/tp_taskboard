@@ -1,0 +1,87 @@
+# frontend.yaml
+# Déploie le frontend statique TaskBoard (HTML/CSS/JS servi par 'serve') avec :
+#   - Deployment  : 1 replica, image locale, port 8080
+#   - Service     : NodePort pour accès direct depuis le navigateur sur Docker Desktop
+#
+# Image à builder avant de déployer :
+#   docker build -t taskboard-frontend:latest ./taskboard/frontend
+#
+# Accès direct (sans Ingress) :
+#   kubectl port-forward -n taskboard svc/taskboard-frontend 8080:8080
+#   Puis ouvrir http://localhost:8080
+#
+# Note : avec l'Ingress (ingress.yaml), window.API_BASE_URL sera /api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskboard-frontend
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskboard
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: taskboard
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: taskboard-frontend:latest
+          # IfNotPresent : utilise l'image buildée localement sur Docker Desktop
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            # URL de l'API backend vue depuis le navigateur client.
+            # Avec l'Ingress nginx, mettre la valeur "" (chemin relatif /api).
+            # Sans Ingress (port-forward), mettre http://localhost:3000.
+            - name: API_BASE_URL
+              value: ""
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+---
+# Service NodePort : permet d'accéder au frontend depuis le navigateur sur Docker Desktop
+# Le NodePort est assigné automatiquement par Kubernetes (30000-32767)
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskboard-frontend
+  namespace: taskboard
+  labels:
+    app: taskboard
+    component: frontend
+spec:
+  type: NodePort
+  selector:
+    app: taskboard
+    component: frontend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      # nodePort non fixé : Kubernetes assigne automatiquement un port libre
